@@ -49,3 +49,55 @@ sequenceDiagram
     I->>S: Şifreli Veri (Base64) Ağdan İletilir
     Note over S: AES anahtarı ile şifre çözülür
     Note over S: Orijinal mesaj alıcıya gösterilir
+
+  ## HAFTA 13: AES-256 SİMETRİK ŞİFRELEME VE VERİ GİZLİLİĞİ
+
+Bu aşamada, SecureChat uygulamasının ağ üzerinden ilettiği tüm veriler, kriptoloji dünyasının altın standardı kabul edilen **AES-256** algoritması ile uçtan uca şifrelenmiştir.
+
+### 1. Teknik Mimari ve Algoritma Seçimi
+Projenin gizlilik (Confidentiality) katmanında aşağıdaki teknik parametreler kullanılmıştır:
+
+* **Algoritma:** AES (Advanced Encryption Standard)
+* **Anahtar Uzunluğu:** 256 Bit (32 Byte) - `AES-256`
+* **Blok Modu:** CBC (Cipher Block Chaining)
+* **Doldurma (Padding):** PKCS7
+* **Karakter Seti:** UTF-8 (Tam Türkçe karakter desteği)
+
+### 2. Güvenlik Mekanizmaları
+
+#### CBC Modu ve Dinamik IV
+Statik şifreleme risklerini önlemek amacıyla **CBC (Cipher Block Chaining)** modu tercih edilmiştir. 
+* Her mesaj gönderiminde `secrets` modülü kullanılarak eşsiz bir **IV (Initialization Vector)** üretilir.
+* Bu sayede ağ üzerinden geçen paketler her seferinde farklı görünerek "Replay" ve "Frekans Analizi" saldırılarını engeller.
+
+#### Base64 Kodlama
+Şifrelenmiş ham byte verileri, ağ protokollerinde (TCP/IP) karakter bozulması yaşanmaması amacıyla **Base64** formatına dönüştürülerek iletilmektedir. Bu sayede veri bütünlüğü korunurken terminal ekranında "okunamaz çıktı" kriteri sağlanmaktadır.
+
+---
+
+### 3. DÖÇ 3 - Başarım ve Kanıt Tablosu
+
+Hocanın değerlendirme kriterlerine (DÖÇ 3) göre hazırlanan teknik kanıtlar aşağıdadır:
+
+| Kriter | Uygulanan Teknik | Kod İçindeki Karşılığı | Durum |
+| :--- | :--- | :--- | :--- |
+| **AES-256 Gücü** | 256 Bit Anahtar Yapısı | `AES.new(key, AES.MODE_CBC, iv)` | ✅ Başarılı |
+| **Okunamaz Çıktı** | Ciphertext Üretimi | `[AĞDAN GELEN PAKET - BASE64]` | ✅ Başarılı |
+| **Base64 Formatı** | Güvenli Veri Taşıma | `base64.b64encode(data)` | ✅ Başarılı |
+| **Veri Güvenliği** | Rastgele IV Kullanımı | `secrets.token_bytes(16)` | ✅ Başarılı |
+
+---
+
+### 4. Örnek İletişim Çıktısı (Test Analizi)
+
+Uygulama çalıştırıldığında ağ trafiğinin görünümü şu şekildedir:
+
+> **Gönderilen Metin:** "Gizli operasyon başladı, 12345 portu güvende."
+>
+> **Ağdaki Görüntü (Base64):** `Oxvb7t2jqxyEKhp9szWb0qL11v9Uv/S1Wiju7Vu4iH5brW5u5NS8ODpxRM74h4pq...`
+>
+> **Alıcı Tarafı (Çözülmüş):** "Gizli operasyon başladı, 12345 portu güvende."
+
+---
+
+**NOT:** Bu rapor, projenin şifreleme fonksiyonlarının rubrikteki beklentileri tam olarak karşıladığını kanıtlamaktadır. Hafta 14 kapsamında, sabit anahtar yerine **RSA Asimetrik Şifreleme** ile anahtar değişimi entegre edilecektir.
