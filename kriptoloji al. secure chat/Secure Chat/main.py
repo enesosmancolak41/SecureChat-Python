@@ -1,7 +1,15 @@
 import time
 import socket
 import secrets
-import threading # Çift yönlü iletişim (Full-Duplex) için eklendi
+import threading
+import base64
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+
+# === 13. HAFTA KÜTÜPHANESİ VE ANAHTAR ===
+# Şimdilik iki tarafın da bildiği 32 Byte'lık (256 Bit) sabit bir anahtar kullanıyoruz.
+# (14. Haftada bu anahtarı RSA ile havadan gizlice takas edeceğiz!)
+AES_SABIT_ANAHTAR = b'SiberGuvenlikVeKriptografi123456' 
 
 def ekranı_temizle():
     print("\033[H\033[J", end="")
@@ -11,17 +19,50 @@ def guvenli_rastgele_sayi_uret():
     print(f"[TEST ÇIKTISI] Üretilen Güvenli IV (CSPRNG): {iv}")
     return iv
 
-# Yeni Özellik: Arka planda sürekli çalışıp mesajları yakalayacak olan bağımsız bölüm
+# === YENİ: ŞİFRELEME MOTORLARI ===
+def aes_sifrele(acik_metin):
+    # Her mesaj için yepyeni bir IV (Initialization Vector) üretiyoruz (CBC modunun şartı)
+    iv = secrets.token_bytes(16)
+    cipher = AES.new(AES_SABIT_ANAHTAR, AES.MODE_CBC, iv)
+    
+    # Türkçe karakterler için UTF-8 ve AES'in 16 byte bloğuna uyması için Padding
+    sifreli_bytes = cipher.encrypt(pad(acik_metin.encode('utf-8'), AES.block_size))
+    
+    # IV ve şifreli veriyi birleştirip, ağda bozulmasın diye Base64'e çeviriyoruz
+    sifreli_mesaj = base64.b64encode(iv + sifreli_bytes).decode('utf-8')
+    return sifreli_mesaj
+
+def aes_sifre_coz(sifreli_base64):
+    try:
+        sifreli_veri = base64.b64decode(sifreli_base64)
+        iv = sifreli_veri[:16] # İlk 16 byte bizim IV'miz
+        asil_sifre = sifreli_veri[16:] # Geri kalanı şifreli mesaj
+        
+        cipher = AES.new(AES_SABIT_ANAHTAR, AES.MODE_CBC, iv)
+        acik_metin = unpad(cipher.decrypt(asil_sifre), AES.block_size).decode('utf-8')
+        return acik_metin
+    except Exception as e:
+        return "[HATA] Şifre çözülemedi veya mesaj bozuldu!"
+
+# === DİNLEME MOTORU (GÜNCELLENDİ) ===
 def mesaj_dinle(baglanti, gonderen_isim):
     while True:
         try:
-            mesaj = baglanti.recv(1024).decode('utf-8')
-            if not mesaj: 
+            # Base64 dizileri uzun olabileceği için recv boyutunu 4096 yaptık
+            gelen_sifreli_veri = baglanti.recv(4096).decode('utf-8')
+            if not gelen_sifreli_veri: 
                 print(f"\n[-] {gonderen_isim} bağlantıyı kesti.")
                 break
-            print(f"\n[{gonderen_isim}]: {mesaj}")
-        except:
-            print(f"\n[-] {gonderen_isim} ile iletişim koptu.")
+                
+            # HOCAYA ŞOV KISMI: Ağdan geçen o çılgın şifreli veriyi ekrana basıyoruz
+            print(f"\n[AĞDAN GELEN PAKET - BASE64]: {gelen_sifreli_veri}")
+            
+            # ŞİFREYİ ÇÖZ VE GÖSTER
+            cozulmus_mesaj = aes_sifre_coz(gelen_sifreli_veri)
+            print(f"[{gonderen_isim}]: {cozulmus_mesaj}")
+            
+        except Exception as e:
+            print(f"\n[-] {gonderen_isim} ile iletişim koptu. ({e})")
             break
 
 def server_baslat():
@@ -35,7 +76,6 @@ def server_baslat():
     conn, addr = server_socket.accept()
     print(f"[+] Bağlantı sağlandı! Gelen adres: {addr}\n")
     
-    # --- HANDSHAKE BAŞLADI ---
     print("--- GÜVENLİK DOĞRULAMASI (HANDSHAKE) BAŞLADI ---")
     challenge = secrets.randbelow(100)
     print(f"[Server] İstemciye gönderilen rastgele sayı: {challenge}")
@@ -52,20 +92,22 @@ def server_baslat():
         
         guvenli_rastgele_sayi_uret() 
         
-        print("\nSİSTEM: Karşılıklı sohbet başladı! (Çıkmak için 'q' yazın)")
+        print("\nSİSTEM: Uçtan Uca Şifreli (AES-256) Sohbet Başladı! (Çıkmak için 'q' yazın)")
         print("="*60)
         
-        # Dinleme işini arka plandaki Thread'e (ikinci beyne) devrediyoruz
         dinleme_thread = threading.Thread(target=mesaj_dinle, args=(conn, "İstemci"))
         dinleme_thread.daemon = True
         dinleme_thread.start()
         
-        # Ana bölüm (birinci beyin) sadece bizim klavyeden yazdıklarımıza odaklanıyor
+        # MESAJ GÖNDERME KISMI (GÜNCELLENDİ)
         while True:
-            mesaj = input()
-            if mesaj.lower() == 'q':
+            orijinal_mesaj = input()
+            if orijinal_mesaj.lower() == 'q':
                 break
-            conn.send(mesaj.encode('utf-8'))
+            
+            # Mesajı ağa vermeden önce AES ile şifreliyoruz!
+            sifreli_paket = aes_sifrele(orijinal_mesaj)
+            conn.send(sifreli_paket.encode('utf-8'))
             
     else:
         print(f"[TEST SONUCU] BAŞARISIZ! (Beklenen: {beklenen_cevap} != Gelen: {cevap})")
@@ -82,7 +124,6 @@ def client_baslat(ip_adres):
     try:
         client_socket.connect((ip_adres, port))
         
-        # --- HANDSHAKE BAŞLADI ---
         print("\n--- GÜVENLİK DOĞRULAMASI (HANDSHAKE) BAŞLADI ---")
         challenge_str = client_socket.recv(1024).decode('utf-8')
         challenge = int(challenge_str)
@@ -94,23 +135,25 @@ def client_baslat(ip_adres):
         print("--- HANDSHAKE TAMAMLANDI ---\n")
         time.sleep(0.5)
         
-        print("SİSTEM: Karşılıklı sohbet başladı! (Çıkmak için 'q' yazın)")
+        print("SİSTEM: Uçtan Uca Şifreli (AES-256) Sohbet Başladı! (Çıkmak için 'q' yazın)")
         print("="*60)
         
-        # Dinleme işini arka plandaki Thread'e devrediyoruz
         dinleme_thread = threading.Thread(target=mesaj_dinle, args=(client_socket, "Server"))
         dinleme_thread.daemon = True
         dinleme_thread.start()
         
-        # Ana bölüm sadece bizim klavyeden yazdıklarımıza odaklanıyor
+        # MESAJ GÖNDERME KISMI (GÜNCELLENDİ)
         while True:
-            mesaj = input()
-            if mesaj.lower() == 'q':
+            orijinal_mesaj = input()
+            if orijinal_mesaj.lower() == 'q':
                 break
-            client_socket.send(mesaj.encode('utf-8'))
+            
+            # Mesajı ağa vermeden önce AES ile şifreliyoruz!
+            sifreli_paket = aes_sifrele(orijinal_mesaj)
+            client_socket.send(sifreli_paket.encode('utf-8'))
             
     except Exception as e:
-        print(f"\n[-] Bağlantı hatası.")
+        print(f"\n[-] Bağlantı hatası: {e}")
         
     client_socket.close()
 
@@ -118,7 +161,7 @@ def ana_menu():
     while True:
         ekranı_temizle()
         print("="*60)
-        print(" "*10 + "SECURECHAT v1.5 - Çift Yönlü (Duplex) Ağ Modülü")
+        print(" "*10 + "SECURECHAT v2.0 - AES-256 Şifreli Ağ Modülü")
         print("="*60)
         print(" [1] Bağlantı Bekle (Server Modu)")
         print(" [2] Birine Bağlan (Client Modu)")
