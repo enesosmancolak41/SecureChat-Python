@@ -48,7 +48,7 @@ sequenceDiagram
     Note over I: Mesaj AES-256 ile şifrelenir
     I->>S: Şifreli Veri (Base64) Ağdan İletilir
     Note over S: AES anahtarı ile şifre çözülür
-    Note over S: Orijinal mesaj alıcıya gösterilir
+    Note over S: Orijinal mesaj alıcıya gösterilir '''
 
   ## HAFTA 13: AES-256 SİMETRİK ŞİFRELEME VE VERİ GİZLİLİĞİ
 
