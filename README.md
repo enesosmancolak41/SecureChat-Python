@@ -20,7 +20,7 @@ Projenin rubrik şartlarını tam karşılaması için seçilen temel bileşenle
 | **Dil** | Python 3.x | Socket yönetimi ve zengin kripto kütüphaneleri. |
 | **Kütüphane** | PyCryptodome | AES-256 ve RSA standartlarına tam uyum. |
 | **Ağ Protokolü** | TCP Socket | Veri paketlerinin sırasının ve bütünlüğünün korunması. |
-| **Arayüz** | CLI (Komut Satırı) | Siber güvenlik konseptine uygun, hızlı ve modüler yapı. |
+| **Arayüz** | CLI (Komut Satırı) | basit , hızlı ve modüler yapı. |
 
 ---
 
