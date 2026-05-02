@@ -83,24 +83,33 @@ Veri Manipülasyonu (Sabotaj / Malleability) Testi: Koda entegre edilen simülas
 Kalıcı Anahtar Güvenliği (Forward Secrecy Temelleri): Tüm RSA anahtar çiftlerinin ve AES oturum anahtarlarının her bağlantı başlangıcında statik disk alanı yerine uçucu bellekte (RAM) dinamik olarak üretilmesi sayesinde, olası bir fiziksel makine ele geçirilmesi durumunda dahi geçmiş sohbet verilerinin anahtarlarına ulaşılması imkansız hale getirilmiş, proje E2EE (End-to-End Encryption) prensipleriyle tam uyumlu çalıştırılmıştır.
 graph TD
     subgraph "Gönderici (İstemci A)"
-        A1[Mesajı Hazırla] --> A2[Rastgele AES Session Key Üret]
-        A2 --> A3[Mesajı AES-CBC ile Şifrele]
-        A2 --> A4[AES Key'i Alıcının RSA Public Key'i ile Şifrele]
-    end
 
-    subgraph "İletişim Kanalı (Güvenli Olmayan Ağ)"
-        A3 --> N1[Şifreli Mesaj + Şifreli AES Key]
-        A4 --> N1
-    end
 
-    subgraph "Alıcı (İstemci B)"
-        N1 --> B1[Şifreli AES Key'i Kendi RSA Private Key'i ile Çöz]
-        B1 --> B2[Elde Edilen AES Session Key]
-        N1 --> B3[Şifreli Mesajı AES Session Key ile Deşifre Et]
-        B2 --> B3
-        B3 --> B4[Orijinal Mesaj]
-    end
+    sequenceDiagram
+    participant A as Gönderici (İstemci)
+    participant N as Güvenli Olmayan Ağ
+    participant B as Alıcı (İstemci/Sunucu)
 
-    style A2 fill:#f9f,stroke:#333,stroke-width:2px
-    style B1 fill:#bbf,stroke:#333,stroke-width:2px
-    style N1 fill:#fff4dd,stroke:#d4a017,stroke-dasharray: 5 5
+    Note over A,B: 1. AŞAMA: RSA ANAHTAR DEĞİŞİMİ
+    B->>N: RSA Public Key (2048-bit) yayınla
+    N->>A: RSA Public Key'i ilet
+
+    Note over A,B: 2. AŞAMA: OTURUM HAZIRLIĞI & ŞİFRELEME
+    A->>A: 1. AES-256 Session Key üret (Rastgele)
+    A->>A: 2. Mesajın SHA-256 Hash'ini al (Bütünlük)
+    A->>A: 3. Mesajı AES-CBC + PKCS7 ile şifrele
+    A->>A: 4. AES Key'i RSA-OAEP ile şifrele (Zırhlama)
+
+    Note over A,B: 3. AŞAMA: VERİ İLETİMİ
+    A->>N: [Şifreli AES Key] + [Şifreli Mesaj + Hash]
+    N->>B: Paketi teslim et
+
+    Note over A,B: 4. AŞAMA: DEŞİFRELEME & DOĞRULAMA
+    B->>B: 1. RSA Private Key ile AES Key'i çöz
+    B->>B: 2. AES Key ile Mesajı + Hash'i deşifre et (PKCS7 Unpad)
+    B->>B: 3. Alınan mesajın tekrar Hash'ini hesapla
+    B-->>B: 4. Hash'leri Karşılaştır (SHA-256 Check)
+    
+    rect rgb(200, 255, 200)
+    Note right of B: Doğrulama Başarılı: Mesaj Güvenli!
+    end
