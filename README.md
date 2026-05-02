@@ -82,6 +82,16 @@ Veri Manipülasyonu (Sabotaj / Malleability) Testi: Koda entegre edilen simülas
 
 Kalıcı Anahtar Güvenliği (Forward Secrecy Temelleri): Tüm RSA anahtar çiftlerinin ve AES oturum anahtarlarının her bağlantı başlangıcında statik disk alanı yerine uçucu bellekte (RAM) dinamik olarak üretilmesi sayesinde, olası bir fiziksel makine ele geçirilmesi durumunda dahi geçmiş sohbet verilerinin anahtarlarına ulaşılması imkansız hale getirilmiş, proje E2EE (End-to-End Encryption) prensipleriyle tam uyumlu çalıştırılmıştır.
 
+Dosyanı **Düzenle (Edit)** moduna al ve içeriği tam olarak şu şekilde güncelle:
+
+---
+
+
+
+```markdown
+###  Sistem İşleyiş Diyagramı (Sequence Diagram)
+
+```mermaid
 sequenceDiagram
     participant A as Gönderici (İstemci)
     participant N as Güvenli Olmayan Ağ
