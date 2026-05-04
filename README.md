@@ -88,8 +88,9 @@ Dosyanı **Düzenle (Edit)** moduna al ve içeriği tam olarak şu şekilde gün
 
 
 
-```markdown
-###  Sistem İşleyiş Diyagramı (Sequence Diagram)
+## 1. Sistem İşleyiş Diyagramı (Sequence Diagram)
+
+Aşağıdaki şema, bağlantı anından itibaren gerçekleşen kriptografik el sıkışma ve veri iletim sürecini göstermektedir:
 
 ```mermaid
 sequenceDiagram
